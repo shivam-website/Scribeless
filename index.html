@@ -1,133 +1,439 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" >
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DocNinja - Image & PDF to Text</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f9f9f9;
-      color: #333;
-      padding: 2rem;
-      max-width: 800px;
-      margin: auto;
+    /* Reset & base */
+    * {
+      box-sizing: border-box;
     }
-
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f9f9f9;
+      color: #222;
+      margin: 0;
+      padding: 2rem;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
     h1 {
       text-align: center;
-      margin-bottom: 1rem;
-    }
-
-    .upload-box {
-      border: 2px dashed #ccc;
-      padding: 2rem;
-      text-align: center;
       margin-bottom: 1.5rem;
-      background: #fff;
-      border-radius: 10px;
+      font-weight: 700;
+      color: #0f172a;
+      user-select: text;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-weight: 600;
+      color: #334155;
+      user-select: text;
+    }
+    /* API Key input */
+    #api-key-container {
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    #api-key {
+      flex: 1;
+      padding: 0.6rem 0.8rem;
+      border: 1.8px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+    #api-key:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 6px rgb(59 130 246 / 0.5);
+    }
+    #generate-key-btn {
+      background: #2563eb;
+      color: white;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.3s;
+    }
+    #generate-key-btn:hover:not(:disabled) {
+      background: #1e40af;
+    }
+    #generate-key-btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
     }
 
+    /* Upload box */
+    .upload-box {
+      border: 2px dashed #cbd5e1;
+      background: white;
+      border-radius: 12px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.3s, background-color 0.3s;
+      cursor: pointer;
+      user-select: none;
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+    .upload-box.dragover {
+      border-color: #2563eb;
+      background-color: #eff6ff;
+    }
     input[type="file"] {
       display: none;
     }
-
     label[for="file-input"] {
-      display: inline-block;
-      padding: 0.7rem 1.5rem;
-      background: #007bff;
-      color: white;
-      border-radius: 5px;
+      font-weight: 600;
+      color: #2563eb;
       cursor: pointer;
+      user-select: none;
+    }
+    .upload-instructions {
+      margin-top: 0.8rem;
+      font-size: 0.9rem;
+      color: #64748b;
+      user-select: text;
     }
 
+    /* Buttons */
     button {
-      background: #28a745;
+      margin-top: 1rem;
+      background-color: #16a34a;
       color: white;
-      padding: 0.7rem 1.5rem;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 1rem;
-    }
-
-    .result {
-      background: #fff;
+      padding: 0.7rem 1.6rem;
+      font-weight: 700;
       border-radius: 8px;
-      padding: 1rem;
-      white-space: pre-wrap;
-      margin-top: 1.5rem;
-      border: 1px solid #ccc;
+      border: none;
+      cursor: pointer;
+      user-select: none;
+      font-size: 1rem;
+      transition: background-color 0.25s;
+      min-width: 130px;
     }
-
-    .loading {
-      font-weight: bold;
-      color: #007bff;
+    button:hover:not(:disabled) {
+      background-color: #15803d;
+    }
+    button:disabled {
+      background-color: #6b7280;
+      cursor: not-allowed;
+    }
+    .action-buttons {
       margin-top: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
 
-    @media (max-width: 600px) {
+    /* Result box */
+    .result {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      border: 1.8px solid #cbd5e1;
+      min-height: 150px;
+      white-space: pre-wrap;
+      font-family: monospace, monospace;
+      font-size: 0.95rem;
+      overflow-y: auto;
+      max-height: 400px;
+      user-select: text;
+      position: relative;
+    }
+
+    /* Loading */
+    .loading {
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 1rem;
+      text-align: center;
+      user-select: none;
+    }
+
+    /* Clear & Copy buttons */
+    .small-btn {
+      background: #2563eb;
+      color: white;
+      border-radius: 6px;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.25s;
+      user-select: none;
+      font-size: 0.85rem;
+    }
+    .small-btn:hover {
+      background: #1e40af;
+    }
+    .small-btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
       body {
-        padding: 1rem;
+        padding: 1rem 0.8rem;
+      }
+      #api-key-container {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      #generate-key-btn {
+        width: 100%;
+      }
+      .action-buttons {
+        flex-direction: column;
+      }
+      button {
+        width: 100%;
+        min-width: unset;
       }
     }
   </style>
 </head>
 <body>
   <h1>🧠 DocNinja</h1>
-  <div class="upload-box">
-    <input type="file" id="file-input" multiple accept="image/*,.pdf" />
-    <label for="file-input">Choose Image or PDF</label>
-    <br />
-    <button id="convert-btn">Convert to Text</button>
-    <div class="loading" id="loading" style="display: none;">Processing...</div>
+
+  <div id="api-key-container">
+    <input
+      type="text"
+      id="api-key"
+      placeholder="Enter your API key"
+      spellcheck="false"
+      autocomplete="off"
+      aria-label="API Key"
+    />
+    <button id="generate-key-btn" title="Generate API key (admin only)">Generate Key</button>
   </div>
 
-  <div class="result" id="result-box" style="display: none;"></div>
+  <div
+    class="upload-box"
+    id="upload-box"
+    tabindex="0"
+    aria-label="Drag and drop image or PDF files here, or click to select files"
+  >
+    <input type="file" id="file-input" multiple accept="image/*,.pdf" />
+    <label for="file-input">Click to select or drag & drop your images or PDFs here</label>
+    <div class="upload-instructions">Supported: JPG, PNG, GIF, BMP, WEBP, PDF</div>
+  </div>
 
-  <script>
-    const fileInput = document.getElementById('file-input');
-    const convertBtn = document.getElementById('convert-btn');
-    const resultBox = document.getElementById('result-box');
-    const loading = document.getElementById('loading');
+  <button id="convert-btn" disabled>Convert to Text</button>
 
-    convertBtn.addEventListener('click', async () => {
-      const files = fileInput.files;
-      if (!files.length) {
-        alert('Please select one or more image or PDF files.');
-        return;
+  <div class="loading" id="loading" style="display:none">Processing...</div>
+
+  <div class="result" id="result-box" style="display:none" tabindex="0" aria-live="polite"></div>
+
+  <div class="action-buttons" style="display:none" id="action-buttons">
+    <button id="copy-btn" class="small-btn" title="Copy extracted text to clipboard">Copy Text</button>
+    <button id="clear-btn" class="small-btn" title="Clear selection and results">Clear</button>
+  </div>
+
+<script>
+(() => {
+  const apiKeyInput = document.getElementById('api-key');
+  const generateKeyBtn = document.getElementById('generate-key-btn');
+  const uploadBox = document.getElementById('upload-box');
+  const fileInput = document.getElementById('file-input');
+  const convertBtn = document.getElementById('convert-btn');
+  const resultBox = document.getElementById('result-box');
+  const loading = document.getElementById('loading');
+  const copyBtn = document.getElementById('copy-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const actionButtons = document.getElementById('action-buttons');
+
+  // Enable convert button only if API key and files exist
+  function updateConvertBtnState() {
+    convertBtn.disabled = !(apiKeyInput.value.trim().length > 0 && fileInput.files.length > 0);
+  }
+
+  // Drag and drop helpers
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  function highlight() {
+    uploadBox.classList.add('dragover');
+  }
+  function unhighlight() {
+    uploadBox.classList.remove('dragover');
+  }
+  uploadBox.addEventListener('dragenter', preventDefaults, false);
+  uploadBox.addEventListener('dragover', e => {
+    preventDefaults(e);
+    highlight();
+  }, false);
+  uploadBox.addEventListener('dragleave', e => {
+    preventDefaults(e);
+    unhighlight();
+  }, false);
+  uploadBox.addEventListener('drop', e => {
+    preventDefaults(e);
+    unhighlight();
+    const dt = e.dataTransfer;
+    if (dt.files && dt.files.length) {
+      fileInput.files = dt.files;
+      updateConvertBtnState();
+    }
+  }, false);
+
+  // Keyboard accessibility for drop zone
+  uploadBox.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  // On file input change
+  fileInput.addEventListener('change', () => {
+    updateConvertBtnState();
+  });
+
+  // On API key input change
+  apiKeyInput.addEventListener('input', () => {
+    updateConvertBtnState();
+  });
+
+  // Generate API key (admin only)
+  generateKeyBtn.addEventListener('click', async () => {
+    const adminPass = prompt("Enter admin password to generate API key:");
+    if (!adminPass) return;
+
+    generateKeyBtn.disabled = true;
+    generateKeyBtn.textContent = "Generating...";
+
+    try {
+      const res = await fetch('/api/generate_key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPass })
+      });
+
+      if (!res.ok) throw new Error(`Error: ${res.status}`);
+
+      const data = await res.json();
+
+      if (data.api_key) {
+        apiKeyInput.value = data.api_key;
+        updateConvertBtnState();
+        alert("API key generated and filled in input!");
+      } else {
+        alert("Failed to generate API key");
       }
+    } catch (err) {
+      alert("Error generating API key: " + err.message);
+    } finally {
+      generateKeyBtn.disabled = false;
+      generateKeyBtn.textContent = "Generate Key";
+    }
+  });
+
+  // Convert button click
+  convertBtn.addEventListener('click', async () => {
+    if (!apiKeyInput.value.trim()) {
+      alert("Please enter your API key.");
+      return;
+    }
+    if (fileInput.files.length === 0) {
+      alert("Please select one or more files.");
+      return;
+    }
+
+    // Clear previous results and show loading
+    resultBox.style.display = 'none';
+    actionButtons.style.display = 'none';
+    loading.style.display = 'block';
+    resultBox.textContent = '';
+
+    // For each file, call appropriate endpoint
+    let allText = '';
+
+    // Process files sequentially for better control
+    for (let i = 0; i < fileInput.files.length; i++) {
+      const file = fileInput.files[i];
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const endpoint = isPdf ? '/api/pdf2text' : '/api/image2text';
 
       const formData = new FormData();
-      for (const file of files) {
-        formData.append('files', file);
-      }
-
-      resultBox.style.display = 'none';
-      loading.style.display = 'block';
+      formData.append('file', file);
 
       try {
-        const response = await fetch('/api/ocr', {
+        const response = await fetch(endpoint, {
           method: 'POST',
-          body: formData,
+          headers: {
+            'x-api-key': apiKeyInput.value.trim()
+          },
+          body: formData
         });
 
-        const data = await response.json();
-        loading.style.display = 'none';
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `API returned status ${response.status}`);
+        }
 
-        if (response.ok && data.success) {
-          resultBox.innerText = data.text.trim() || '[No text found in file(s)]';
-          resultBox.style.display = 'block';
+        const data = await response.json();
+        if (data.success && data.text) {
+          allText += `--- Text from ${file.name} ---\n\n${data.text.trim()}\n\n`;
         } else {
-          resultBox.innerText = data.error || 'Something went wrong!';
-          resultBox.style.display = 'block';
+          allText += `--- Failed to extract text from ${file.name} ---\n\n${data.error || 'Unknown error'}\n\n`;
         }
       } catch (err) {
-        loading.style.display = 'none';
-        resultBox.innerText = 'Error: ' + err.message;
-        resultBox.style.display = 'block';
+        allText += `--- Error processing ${file.name} ---\n\n${err.message}\n\n`;
       }
+    }
+
+    loading.style.display = 'none';
+
+    if (allText.trim().length === 0) {
+      resultBox.textContent = '[No text extracted from the selected file(s)]';
+    } else {
+      resultBox.textContent = allText.trim();
+    }
+    resultBox.style.display = 'block';
+    actionButtons.style.display = 'flex';
+    resultBox.focus();
+  });
+
+  // Copy text button
+  copyBtn.addEventListener('click', () => {
+    if (!resultBox.textContent) return;
+    navigator.clipboard.writeText(resultBox.textContent).then(() => {
+      alert('Copied to clipboard!');
+    }).catch(() => {
+      alert('Failed to copy.');
     });
-  </script>
+  });
+
+  // Clear button
+  clearBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    apiKeyInput.value = '';
+    resultBox.textContent = '';
+    resultBox.style.display = 'none';
+    actionButtons.style.display = 'none';
+    convertBtn.disabled = true;
+  });
+
+  // Initialize button state
+  updateConvertBtnState();
+
+})();
+</script>
 </body>
 </html>
