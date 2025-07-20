@@ -7,14 +7,14 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set workdir
+# Set working directory
 WORKDIR /app
 
-# Copy code
+# Copy code to container
 COPY . .
 
-# Install Python deps
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Run the app
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
+# Run the app using Gunicorn with 1 worker and 120s timeout
+CMD ["gunicorn", "app:app", "--workers", "1", "--timeout", "120", "--bind", "0.0.0.0:${PORT}"]
