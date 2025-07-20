@@ -12,4 +12,6 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 10000
-CMD gunicorn app:app --workers 1 --timeout 120 --bind 0.0.0.0:$PORT
+
+# Use exec form to allow environment variables like $PORT to be recognized by the shell
+CMD ["sh", "-c", "gunicorn app:app --workers 1 --timeout 120 --bind 0.0.0.0:${PORT:-10000}"]
