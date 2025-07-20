@@ -1,151 +1,84 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+import os
 import pytesseract
 from PIL import Image
-import io
-import os
+from werkzeug.utils import secure_filename
+from pdf2image import convert_from_bytes
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 CORS(app)
 
-# For Windows only (ignored in production Docker)
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR'
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# --- API Key system ---
+ALLOWED_API_KEYS = {"abc123", "testkey123"}  # You can manage this securely in DB or env later
+
+def check_api_key():
+    api_key = request.headers.get("x-api-key")
+    if api_key not in ALLOWED_API_KEYS:
+        return False
+    return True
+
+# --- Serve frontend ---
 @app.route('/')
-def serve():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
-    try:
-        img = Image.open(io.BytesIO(file.read()))
-        text = pytesseract.image_to_string(img)
-
-        return jsonify({
-            'success': True,from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-import os
-import pytesseract
-from PIL import Image
-import fitz  # PyMuPDF
-from pyzbar.pyzbar import decode as qr_decode
-
-app = Flask(__name__, static_folder='.', static_url_path='')
-CORS(app)
-
-# --------- Routes to Serve Frontend --------- #
-@app.route('/')
-def serve():
+def serve_index():
     return send_from_directory('.', 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
-    if os.path.exists(os.path.join('.', path)):
-        return send_from_directory('.', path)
-    else:
-        return send_from_directory('.', 'index.html')
+    return send_from_directory('.', path) if os.path.exists(path) else send_from_directory('.', 'index.html')
 
-@app.errorhandler(404)
-def not_found(e):
-    return send_from_directory('.', 'index.html')
-
-# ---------- OCR: Image to Text --------- #
-@app.route('/api/ocr/image', methods=['POST'])
-def ocr_image():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    image = Image.open(file.stream)
-    text = pytesseract.image_to_string(image)
-
-    return jsonify({'success': True, 'text': text.strip()})
-
-# ---------- OCR: PDF to Text --------- #
-@app.route('/api/ocr/pdf', methods=['POST'])
-def ocr_pdf():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    text_output = ""
-
-    try:
-        pdf = fitz.open(stream=file.read(), filetype="pdf")
-        for page in pdf:
-            pix = page.get_pixmap(dpi=300)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            page_text = pytesseract.image_to_string(img)
-            text_output += page_text + "\n"
-        pdf.close()
-    except Exception as e:
-        return jsonify({'error': f'PDF OCR failed: {str(e)}'}), 500
-
-    return jsonify({'success': True, 'text': text_output.strip()})
-
-# ---------- QR Code Scanner --------- #
-@app.route('/api/scan/qr', methods=['POST'])
-def scan_qr():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    image = Image.open(file.stream)
-    decoded = qr_decode(image)
-
-    if not decoded:
-        return jsonify({'error': 'No QR code found'}), 404
-
-    results = [d.data.decode('utf-8') for d in decoded]
-    return jsonify({'success': True, 'results': results})
-
-# ---------- Barcode Scanner --------- #
-@app.route('/api/scan/barcode', methods=['POST'])
-def scan_barcode():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-
-    file = request.files['file']
-    image = Image.open(file.stream)
-    decoded = qr_decode(image)
-
-    if not decoded:
-        return jsonify({'error': 'No barcode found'}), 404
-
-    results = [{'type': d.type, 'data': d.data.decode('utf-8')} for d in decoded]
-    return jsonify({'success': True, 'results': results})
-
-# ---------- Dummy Ping API --------- #
+# --- API Ping Test ---
 @app.route('/api/ping', methods=['GET'])
 def ping():
     return jsonify({'message': 'pong'})
 
-# ---------- Run Server --------- #
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+# --- Image to Text API ---
+@app.route('/api/image2text', methods=['POST'])
+def image_to_text():
+    if not check_api_key():
+        return jsonify({'error': 'Invalid or missing API key'}), 401
 
-            'text': text.strip(),
-            'filename': file.filename
-        })
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+
+    try:
+        text = pytesseract.image_to_string(Image.open(filepath))
+        return jsonify({'success': True, 'text': text})
     except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'message': 'Could not process the image. Please ensure it contains clear text.'
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
-# Catch-all for SPA routing (optional)
+# --- PDF to Text API ---
+@app.route('/api/pdf2text', methods=['POST'])
+def pdf_to_text():
+    if not check_api_key():
+        return jsonify({'error': 'Invalid or missing API key'}), 401
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    file = request.files['file']
+    try:
+        images = convert_from_bytes(file.read())
+        full_text = ""
+        for img in images:
+            full_text += pytesseract.image_to_string(img) + "\n"
+        return jsonify({'success': True, 'text': full_text})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- Fallback for SPA ---
 @app.errorhandler(404)
 def not_found(e):
     return send_from_directory('.', 'index.html')
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
