@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <style>
     :root {
       --primary: #4f46e5;
@@ -318,6 +319,12 @@
       font-weight: 500;
     }
 
+    .progress-text {
+      color: white;
+      font-size: 16px;
+      margin-top: 12px;
+    }
+
     .toast {
       position: fixed;
       bottom: 24px;
@@ -348,44 +355,37 @@
       margin-top: 40px;
     }
 
-    /* Limit features on mobile: show only 1 */
-@media (max-width: 480px) {
-  .features {
-    display: flex;
-    overflow-x: auto;
-    gap: 12px;
-  }
-  .feature-card {
-    min-width: 220px;
-    flex: 0 0 auto;
-    padding: 16px;
-    box-shadow: var(--shadow);
-    font-size: 14px;
-    text-align: center;
-  }
-  .feature-desc {
-    display: none; /* Hide description to reduce clutter */
-  }
-  .feature-title {
-    font-size: 16px;
-    margin-bottom: 8px;
-  }
-  .feature-icon {
-    font-size: 28px;
-    margin-bottom: 8px;
-  }
-}
+    /* Features section */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
 
-/* For slightly bigger phones/tablets show 2 features */
-@media (min-width: 481px) and (max-width: 767px) {
-  .features {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .feature-desc {
-    font-size: 13px;
-  }
-}
+    .feature-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
 
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .feature-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      color: var(--text-light);
+      font-size: 14px;
+    }
 
     /* Mobile optimizations */
     @media (max-width: 768px) {
@@ -430,6 +430,46 @@
       .result-text {
         min-height: 250px;
       }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Limit features on mobile: show only 1 */
+    @media (max-width: 480px) {
+      .features {
+        display: flex;
+        overflow-x: auto;
+        gap: 12px;
+        padding-bottom: 8px;
+      }
+      .feature-card {
+        min-width: 220px;
+        flex: 0 0 auto;
+        padding: 16px;
+      }
+      .feature-desc {
+        display: none;
+      }
+      .feature-title {
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+      .feature-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+    }
+
+    /* For slightly bigger phones/tablets show 2 features */
+    @media (min-width: 481px) and (max-width: 767px) {
+      .features {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .feature-desc {
+        font-size: 13px;
+      }
     }
   </style>
 </head>
@@ -457,7 +497,7 @@
       <div class="feature-card">
         <div class="feature-icon">🔒</div>
         <h3 class="feature-title">Privacy Focused</h3>
-        <p class="feature-desc">Your images are processed securely and never stored</p>
+        <p class="feature-desc">Your images are processed in your browser and never uploaded</p>
       </div>
     </div>
 
@@ -502,6 +542,7 @@
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
     <p class="loading-text">Processing your image...</p>
+    <p class="progress-text" id="progressText"></p>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -524,6 +565,7 @@
       const copyBtn = document.getElementById('copyBtn');
       const downloadBtn = document.getElementById('downloadBtn');
       const loadingOverlay = document.getElementById('loadingOverlay');
+      const progressText = document.getElementById('progressText');
       const toast = document.getElementById('toast');
 
       // Event Listeners
@@ -602,40 +644,35 @@
         reader.onload = function(e) {
           previewImage.src = e.target.result;
           previewContainer.style.display = 'block';
-          processImage(file);
+          processImageWithTesseract(file);
         };
         reader.readAsDataURL(file);
       }
 
-      function processImage(file) {
+      function processImageWithTesseract(file) {
         showLoading(true);
+        progressText.textContent = 'Initializing OCR engine...';
         
-        const formData = new FormData();
-        formData.append('file', file);
-
-        fetch('/upload', {
-          method: 'POST',
-          body: formData
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
+        Tesseract.recognize(
+          file,
+          'eng', // Default to English, can be made configurable
+          {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                progressText.textContent = `Processing: ${Math.round(m.progress * 100)}%`;
+              } else {
+                progressText.textContent = m.status;
+              }
+            }
           }
-          return response.json();
-        })
-        .then(data => {
-          if (data.error) {
-            throw new Error(data.message || 'Error processing image');
-          }
-          showResult(data.text);
+        ).then(({ data: { text } }) => {
+          showResult(text);
           showToast('Text extracted successfully!', 'success');
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          showToast(error.message || 'Failed to extract text', 'error');
+        }).catch(err => {
+          console.error('OCR Error:', err);
+          showToast('Failed to extract text: ' + err.message, 'error');
           resetUI();
-        })
-        .finally(() => {
+        }).finally(() => {
           showLoading(false);
         });
       }
@@ -674,6 +711,9 @@
 
       function showLoading(show) {
         loadingOverlay.style.display = show ? 'flex' : 'none';
+        if (!show) {
+          progressText.textContent = '';
+        }
       }
 
       function showToast(message, type = 'info') {
