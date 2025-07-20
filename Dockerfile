@@ -1,23 +1,26 @@
 FROM python:3.10-slim
 
-# Install Tesseract and dependencies
+# Install Tesseract OCR and required dependencies
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
+    libleptonica-dev \
+    poppler-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy project files into the container
+# Copy all project files to the container
 COPY . .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Expose a default port (optional for docs only — Render injects $PORT at runtime)
+# Expose the port (Render sets $PORT automatically)
 EXPOSE 10000
 
-# Run the app using shell form so $PORT gets resolved properly
+# Start the Flask app using Gunicorn
 CMD gunicorn app:app --workers 1 --timeout 120 --bind 0.0.0.0:$PORT
